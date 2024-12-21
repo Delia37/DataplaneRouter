@@ -1,0 +1,77 @@
+Enuntul temei: https://pcom.pages.upb.ro/tema1/
+
+README
+Pentru realizarea temei am pornit de la modul in care este realizata
+comunicarea pe internet, intre un calculator de pe o retea locala si un
+calculator de pe alta retea locala, din cu totul alta parte a lumii.
+
+Am inceput de la inceput cu realizarea unei tabele dinamice pentru ARP,
+asa cum am vazut ca este in realitate. Am studiat scheletul de cod oferit,
+toate header-ele si sursele, si am incercat inca de la inceput sa incheg
+codul meu cu ce este acolo, pentru ca mi-am dat seama ca majoritatea
+lucrurilor de acolo (cum ar fi cozile si listele) sunt adaugate pentru ca
+eu sa le folosesc.
+
+Am incercat sa imi fac o structura generala a codului, cu un while principal,
+in care iau pachetul, si apoi o serie de if-else-uri care trateaza pachetul
+in functie de tipul sau. In prima parte, inainte de a analiza mesajul, imi
+salvez caracteristicile de baza cum ar fi interfata pe care a sosit si adresa
+de IP aferenta acesteia.
+
+Ca o regula generala, am analizat si compus mesajele folosind structuri, si
+pointeri catre structuri, pentru a lua sau insera usor date intr-un char
+buffer general. Am avut de asemenea grija ca datele sa fie in host sau network
+byte order, in functie de cum trebuiau sa fie, uneori le primeam in network
+order si le trimeteam la fel direct mai departe.
+
+Ca ordine de implementare am mers pas cu pas, incepand cu ARP si urcand catre
+ICMP.
+
+Pentru fiecare pache primit intai verific daca este pentru mine (la nivel de
+Layer 2), adica broadcast (toti bytii pe valoarea maxima 255 (FF)) sau
+aceeasi adresa de MAC la destinatie ca interfata pe care a venit. Apoi,
+dupa tipul pachetului encapsulat in header-ul de ethernet il tratez, fie
+este un pachet ARP fie unul IP. Pe parcurs am folosit printari pentru a testa
+ce se intampla si am testat manual cu ping pe topologia de retea data. Pentru
+ARP am doua cazuri: ARP request si reply, m-am folosit de video-urile date in
+enuntul temei pentru a vedea cam ce trebuie inlocui in campurile structurilor
+pentru a-mi forma pachete. In general erau interschimbari simple, se schimbau
+sursa cu destinatia, ori intre ele ori cu adrese ale router-ului, depinde
+daca trebuia schimbata interfata sau nu. Pentru a optimiza, mi s-a parut logic
+sa adaug adresele locale descoperite in tabela dinamica la ambele tipuri de
+mesaje, ori de cate ori am ocazia, si la reply si la request, pentru ca daca
+descopar o gazda noua inca de la request, pe viitor o sa stiu unde sa trimit
+pachetele care vin pentru acel host.
+
+Am folosit pentru tabela dinamica de ARP lista inlantuita oferita in schelet,
+si pentru coada de mesaje care trebuiesc trimise catre o gazda coada, cu
+functiile aferente. Pentru reply-uri, cand descopar o gazda catre care trebuie
+sa trimit pachete, ii trimit toate pachetele tinute pentru acea adresa de IP
+in coada. Am folosit o coada auxiliara, pentru a putea parcurge usor coada,
+care este distrusa la parcurgere, si fara a merge la infinit, pachetele scoase
+care nu sunt trimise intra in coada auxiliara.
+
+Pentru pachetele IP intai se verifica integritatea acestora, resetand si
+calculand din nou check-sumul cu functie oferita, trebuia doar sa am grija la
+ordine byt-ilor si la formatul pe care lucreaza functia, apoi checksum-ul
+daca este corect este bagat la loc, pentru ca pachetul sa ramana intact (desi
+am senzatia ca la acel moment nu era necesar). Apoi verific TTL-ul sa vad
+daca pachetul a expirat, si daca da, trimit un raspuns ICMP time exceeded.
+
+Trebui sa verific daca eu sunt destinatia acelui pachet ICMP, pentru ca
+router-ul trebuie sa raspunda la ping-urile care ii sunt destinate.
+Pentru pachetele ce trebuiesc rutate, actualizez TTL-ul, ceea ce este destul
+pentru a necesitate recalcularea checksum-ului. Apoi caut adresa in tabela
+de routare, avand grija ca sa aleg reteaua cea mai locala (cu cea mai lunga
+masca care se potriveste). Daca am gasit o retea catre care sa trimit
+pachetul, mai ramane sa vad daca cunosc adresa de MAC a urmatorului hop,
+daca o am in tabela ARP trimit pachetul, daca nu il bag in coada si trimit
+un request pentru a afla adresa de MAC a router-ului la care trimit.
+
+Exista si varianta de destination unreachable, daca nu stiu unde sa-l trimit.
+Pachetele care nu intra in cele doua sau trei categorii ARP/ICMP/IP de routat
+le ignor. Pentru a optimiza procesul liniar de matching am incerca sa sortez
+vectorul care contine tabela de routare, pentru a intrerupe cautarea la un
+moment dat, dar nu am mai fost sigura pe criteriul de sortare, pentru ca gaseam
+contra exemplu, iar optimizarea cu TRIE am inteles-o dar nu am putut face
+implementarea sa mearga.
